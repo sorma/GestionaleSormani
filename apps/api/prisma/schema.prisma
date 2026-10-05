@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Cliente {
+  id             Int      @id @default(autoincrement())
+  nome           String
+  cognome        String
+  email          String?  @unique
+  telefono       String?
+  indirizzo      String?
+  citta          String?
+  cap            String?
+  provincia      String?
+  codiceFiscale  String?  @unique
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ordini         Ordine[]
+  preventivi     Preventivo[]
+
+  @@map("clienti")
+}
+
+enum StatoOrdine {
+  BOZZA
+  CONFERMATO
+  IN_ATTESA_FORNITORI
+  PRONTO_CONSEGNA
+  CONSEGNATO
+}
+
+enum TipoPagamento {
+  ACCONTO
+  SALDO
+}
+
+enum StatoPreventivo {
+  BOZZA
+  INVIATO
+  APPROVATO
+  RIFIUTATO
+  CONVERTITO
+}
+
+enum TipoIncaricato {
+  TITOLARE
+  MONTATORE
+}
+
+enum StatoLavoro {
+  PIANIFICATO
+  COMPLETATO
+}
+
+enum CategoriaMobile {
+  DIVANO
+  TAVOLO
+  SEDIE
+  CUCINA
+  LETTO
+  ARMADIATURE
+  COMODINO
+  SCRIVANIA
+  MENSOLE
+  COMO
+}
+
+model Fornitore {
+  id        Int          @id @default(autoincrement())
+  nome      String       @unique
+  email     String?
+  telefono  String?
+  note      String?
+  righe     RigaOrdine[]
+  opzioniPreventivo OpzionePreventivo[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("fornitori")
+}
+
+model Ordine {
+  id                    Int               @id @default(autoincrement())
+  clienteId             Int
+  cliente               Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  preventivoId           Int?              @unique
+  preventivo             Preventivo?       @relation(fields: [preventivoId], references: [id], onDelete: Restrict)
+  dataOrdine            DateTime          @db.Date
+  dataConsegnaPrevista  DateTime?         @db.Date
+  dataConsegnaEffettiva DateTime?         @db.Date
+  stato                 StatoOrdine       @default(BOZZA)
+  note                  String?
+  righe                 RigaOrdine[]
+  pagamenti             PagamentoOrdine[]
+  lavoroConsegna        LavoroConsegna?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([clienteId])
+  @@map("ordini")
+}
+
+model Montatore {
+  id               Int              @id @default(autoincrement())
+  nome             String
+  cognome          String
+  telefono         String
+  costoGiornaliero Decimal          @db.Decimal(12, 2)
+  lavori           LavoroConsegna[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@map("montatori")
+}
+
+model LavoroConsegna {
+  id                         Int             @id @default(autoincrement())
+  ordineId                   Int             @unique
+  ordine                     Ordine          @relation(fields: [ordineId], references: [id], onDelete: Restrict)
+  tipoIncaricato             TipoIncaricato
+  montatoreId                Int?
+  montatore                  Montatore?      @relation(fields: [montatoreId], references: [id], onDelete: Restrict)
+  costoGiornalieroApplicato  Decimal         @db.Decimal(12, 2)
+  dataInizio                 DateTime        @db.Date
+  giorni                     Int
+  stato                      StatoLavoro     @default(PIANIFICATO)
+  dataCompletamento          DateTime?       @db.Date
+  note                       String?
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+
+  @@index([montatoreId])
+  @@map("lavori_consegna")
+}
+
+model RigaOrdine {
+  id                       Int        @id @default(autoincrement())
+  ordineId                 Int
+  ordine                   Ordine     @relation(fields: [ordineId], references: [id], onDelete: Cascade)
+  fornitoreId              Int?
+  fornitore                Fornitore? @relation(fields: [fornitoreId], references: [id], onDelete: Restrict)
+  posizione                Int
+  descrizione              String
+  categoria                CategoriaMobile?
+  quantita                 Int
+  prezzoUnitario           Decimal    @db.Decimal(12, 2)
+  costoAcquistoUnitario    Decimal?   @db.Decimal(12, 2)
+  dataOrdineFornitore      DateTime?  @db.Date
+  dataConfermaFornitore    DateTime?  @db.Date
+  arrivoPrevisto           DateTime?  @db.Date
+  arrivoEffettivo          DateTime?  @db.Date
+
+  @@index([ordineId])
+  @@index([fornitoreId])
+  @@map("righe_ordine")
+}
+
+model Preventivo {
+  id           Int                @id @default(autoincrement())
+  clienteId    Int
+  cliente      Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  data         DateTime           @db.Date
+  stato        StatoPreventivo    @default(BOZZA)
+  note         String?
+  voci         VocePreventivo[]
+  ordine       Ordine?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([clienteId])
+  @@map("preventivi")
+}
+
+model VocePreventivo {
+  id           Int                  @id @default(autoincrement())
+  preventivoId Int
+  preventivo   Preventivo           @relation(fields: [preventivoId], references: [id], onDelete: Cascade)
+  posizione    Int
+  descrizione  String
+  categoria    CategoriaMobile?
+  quantita     Int
+  opzioni      OpzionePreventivo[]
+
+  @@index([preventivoId])
+  @@map("voci_preventivo")
+}
+
+model OpzionePreventivo {
+  id             Int             @id @default(autoincrement())
+  voceId         Int
+  voce           VocePreventivo  @relation(fields: [voceId], references: [id], onDelete: Cascade)
+  fornitoreId    Int
+  fornitore      Fornitore       @relation(fields: [fornitoreId], references: [id], onDelete: Restrict)
+  prezzoVendita  Decimal         @db.Decimal(12, 2)
+  scelta         Boolean         @default(false)
+
+  @@index([voceId])
+  @@index([fornitoreId])
+  @@map("opzioni_preventivo")
+}
+
+model PagamentoOrdine {
+  id            Int           @id @default(autoincrement())
+  ordineId      Int
+  ordine        Ordine        @relation(fields: [ordineId], references: [id], onDelete: Restrict)
+  tipo          TipoPagamento
+  importo       Decimal       @db.Decimal(12, 2)
+  dataPagamento DateTime      @db.Date
+  note          String?
+  createdAt     DateTime      @default(now())
+
+  @@index([ordineId])
+  @@map("pagamenti_ordine")
+}

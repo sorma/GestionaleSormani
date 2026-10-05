@@ -1,0 +1,19 @@
+{
+  "name": "gestionale-sormani",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @gestionale/api\" \"npm run dev -w @gestionale/web\"",
+    "build": "npm run build -w @gestionale/api && npm run build -w @gestionale/web",
+    "typecheck": "npm run typecheck -w @gestionale/api && npm run typecheck -w @gestionale/web"
+  },
+  "devDependencies": {
+    "concurrently": "latest"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
